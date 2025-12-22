@@ -577,7 +577,7 @@ def dialog2trajectories(
                 ]
 
                 index = SimpleNeighbors(
-                    domains[domain]["emb"].shape[1], metric="cosine"
+                    domains[domain]["emb"].shape[1], metric="angular"
                 )
                 index.feed(
                     [(utt, cluster_embs[cix]) for cix, utt in enumerate(cluster_utts)]
