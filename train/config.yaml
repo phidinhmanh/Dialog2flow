@@ -3,7 +3,7 @@ seed: 13
 model:
   base: "bert-base-uncased"  # e.g. "TODBERT/TOD-BERT-JNT-V1"
   pooling_mode: "cls"  # "cls"; "mean"; "max"; "weightedmean"; "lasttoken";
-  special_tokens: []  # e.g. ["[USR]", "[SYS]"]
+  special_tokens: ["[USR]", "[SYS]"]  # Speaker role tokens for TOD
   max_seq_length: 128  # if null, then min(auto_model.config.max_position_embeddings, tokenizer.model_max_length)
 
 target:

@@ -4,6 +4,7 @@ MIT License
 
 @author: Sergio Burdisso (sergio.burdisso@idiap.ch)
 """
+
 from .BaseLoss import BaseLoss
 from .BaseContrastiveLoss import BaseContrastiveLoss
 
@@ -22,11 +23,27 @@ from .ResponseContrastiveLoss import ResponseContrastiveLoss
 from .DenoisingAutoEncoderLoss import DenoisingAutoEncoderLoss
 from .SimCseLoss import SimCseLoss
 
-CONTRASTIVE_LOSSES = (ResponseContrastiveLoss,
-                      MultipleNegativesRankingLoss,
-                      MultipleNegativesSymmetricRankingLoss,
-                      HardNegativeSamplingLoss,
-                      LabeledContrastiveLoss)
+# new improvements
+from .CenterLoss import CenterLoss, CenterLossWithContrastive
+from .DomainAdversarialLoss import (
+    DomainAdversarialLoss,
+    DomainAdversarialContrastiveLoss,
+    GradientReversalLayer,
+)
+from .StructuredSoftContrastiveLoss import (
+    StructuredLabelEncoder,
+    compute_structured_similarity,
+    compute_structured_similarity_matrix,
+    parse_label,
+)
+
+CONTRASTIVE_LOSSES = (
+    ResponseContrastiveLoss,
+    MultipleNegativesRankingLoss,
+    MultipleNegativesSymmetricRankingLoss,
+    HardNegativeSamplingLoss,
+    LabeledContrastiveLoss,
+)
 
 UNSUPERVISED_LOSSES = (DenoisingAutoEncoderLoss, SimCseLoss)
 

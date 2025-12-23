@@ -354,6 +354,7 @@ def dialog2trajectories(
     labels_top_k: int = 5,
     dendrogram: bool = True,
     target_domains: List[str] = None,
+    use_speaker_tokens: bool = False,  # NEW: prepend [USR]/[SYS] tokens
 ) -> str:
     if type(thresholds) is not list:
         thresholds = [thresholds]
@@ -491,8 +492,22 @@ def dialog2trajectories(
         else:
             sentence_encoder = SentenceTransformer(embedding_model, device=device)
 
+        # Prepare texts with optional speaker tokens
+        texts_to_encode = domains[domain]["text"]
+        if use_speaker_tokens:
+            logger.info("Prepending speaker role tokens [USR]/[SYS] to utterances...")
+            speaker_tokens = {"user": "[USR]", "system": "[SYS]"}
+            texts_to_encode = np.array(
+                [
+                    f"{speaker_tokens.get(spk, '')} {txt}".strip()
+                    for spk, txt in zip(
+                        domains[domain]["speaker"], domains[domain]["text"]
+                    )
+                ]
+            )
+
         domains[domain]["emb"] = sentence_encoder.encode(
-            domains[domain]["text"],
+            texts_to_encode,
             show_progress_bar=True,
             batch_size=128,
             device=device,

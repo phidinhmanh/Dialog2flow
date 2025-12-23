@@ -101,11 +101,129 @@ SLOT_CANONICALIZATION = {
 }
 
 
+# Common filler words in spoken dialogue (ASR noise)
+FILLER_WORDS = {
+    "uh",
+    "um",
+    "uhm",
+    "uh-huh",
+    "uh huh",
+    "hmm",
+    "hm",
+    "mm",
+    "mmm",
+    "er",
+    "err",
+    "ah",
+    "oh",
+    "eh",
+    "mhm",
+    "mm-hmm",
+    "mm hmm",
+    "like",
+    "you know",
+    "i mean",
+    "basically",
+    "actually",
+    "literally",
+    "well",
+    "so",
+    "yeah",
+    "yep",
+    "nope",
+    "okay",
+    "ok",
+    "right",
+    # Vietnamese fillers (if applicable)
+    "à",
+    "ừ",
+    "ờ",
+    "ồ",
+    "ạ",
+}
+
+# Common ASR transcription errors and their corrections
+ASR_CORRECTIONS = {
+    "wanna": "want to",
+    "gonna": "going to",
+    "gotta": "got to",
+    "kinda": "kind of",
+    "sorta": "sort of",
+    "lemme": "let me",
+    "gimme": "give me",
+    "dunno": "do not know",
+    "dont": "do not",
+    "cant": "cannot",
+    "wont": "will not",
+    "wouldnt": "would not",
+    "shouldnt": "should not",
+    "couldnt": "could not",
+    "didnt": "did not",
+    "doesnt": "does not",
+    "isnt": "is not",
+    "arent": "are not",
+    "wasnt": "was not",
+    "werent": "were not",
+    "havent": "have not",
+    "hasnt": "has not",
+    "hadnt": "had not",
+    "im": "i am",
+    "ive": "i have",
+    "id": "i would",
+    "ill": "i will",
+    "youre": "you are",
+    "youve": "you have",
+    "youd": "you would",
+    "youll": "you will",
+    "hes": "he is",
+    "shes": "she is",
+    "its": "it is",
+    "weve": "we have",
+    "theyre": "they are",
+    "theyve": "they have",
+    "theyd": "they would",
+    "theyll": "they will",
+    "thats": "that is",
+    "whats": "what is",
+    "heres": "here is",
+    "theres": "there is",
+    "wheres": "where is",
+    "hows": "how is",
+    "whos": "who is",
+}
+
+
 def preprocess(text):
+    """Clean spoken dialogue text by removing fillers and correcting ASR errors."""
+    # Normalize whitespace and lowercase
+    text = text.lower().strip()
+
+    # Fix common punctuation issues from ASR
     text = re.sub(r"(\w)\s+'\s*", r"\1'", text)
-    text = re.sub(r"(\w)\s+\?", r"\1'", text)
+    text = re.sub(r"(\w)\s+\?", r"\1?", text)
+
+    # Remove repeated words (common ASR artifact)
+    text = re.sub(r"\b(\w+)(\s+\1)+\b", r"\1", text)
+
+    # Apply ASR corrections
+    words = text.split()
+    corrected_words = []
+    for word in words:
+        clean_word = re.sub(r"[^a-zA-Z0-9']", "", word)
+        if clean_word in ASR_CORRECTIONS:
+            corrected_words.append(ASR_CORRECTIONS[clean_word])
+        elif clean_word not in FILLER_WORDS and clean_word:
+            corrected_words.append(word)
+
+    text = " ".join(corrected_words)
+
+    # Final cleanup: keep only alphanumeric and basic punctuation
     text = " ".join(re.findall(r"[a-zA-Z0-9'?]+", text))
-    return text.lower()
+
+    # Remove extra whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
 
 
 def get_turn(turn, act_slots):
