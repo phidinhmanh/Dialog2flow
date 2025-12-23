@@ -193,10 +193,15 @@ def prune_graph(
         G.remove_nodes_from([n for n in nx.isolates(G) if n not in protected_nodes])
 
     if remove_unrecheable:
-        if DEFAULT_TOKEN_START in G and DEFAULT_TOKEN_END in G:
+        if G.has_node(DEFAULT_TOKEN_END) and G.has_node(DEFAULT_TOKEN_START):
             end2start_reachables = nx.ancestors(G, DEFAULT_TOKEN_END).intersection(
                 nx.descendants(G, DEFAULT_TOKEN_START)
             )
+        else:
+            print(
+                f"Warning: Start or End node missing. Start: {G.has_node(DEFAULT_TOKEN_START)}, End: {G.has_node(DEFAULT_TOKEN_END)}"
+            )
+            end2start_reachables = set()
             G.remove_nodes_from(
                 [
                     n
