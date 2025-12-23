@@ -8,6 +8,7 @@ MIT License
 
 @author: Sergio Burdisso (sergio.burdisso@idiap.ch)
 """
+
 import os
 import re
 import json
@@ -33,33 +34,83 @@ NODE_UTTERANCE_LEN = 30
 
 if __name__ == "__main__":
     #  e.g. python build_graph.py -i output/trajectories-dialog2flow-joint-bert-base.json  -te 0.05 -tn 0 -ew prob-out
-    parser = argparse.ArgumentParser(prog="Generate action transition graph from a given trajectories JSON file.")
-    parser.add_argument("-i", "--input-path", help="Path to the 'trajectories.json' file or folder with trajectoriy files", required=True)
-    parser.add_argument("-o", "--output-path", help="Folder to store the graphs per domain", default="output/graph")
-    parser.add_argument("-d", "--target-domains", nargs='*', help="Target domains to use. If empty, all domains")
-    parser.add_argument("-te", "--prune-threshold-edges", type=float, help="Threshold value for pruning the graph edges", default=0.2)
-    parser.add_argument("-tn", "--prune-threshold-nodes", type=float, help="Threshold value for pruning the graph nodes", default=0.023)
-    parser.add_argument("-ew", "--edges-weight", choices=["max", "max-out", "prob-out"], help="How to weight the edges: "
-                        "'max' for frequency / max overall frequency; "
-                        "'max-out' for frequency / max output sibling frequency; "
-                        "'prob-out' for frequency / sum(all output siblings)", default="max-out")
-    parser.add_argument("-png", "--png-visualization", action="store_true", help="Generate PNG image files.")
-    parser.add_argument("-iv", "--interactive-visualization", action="store_true", help="Generate interactive visualization files.")
+    parser = argparse.ArgumentParser(
+        prog="Generate action transition graph from a given trajectories JSON file."
+    )
+    parser.add_argument(
+        "-i",
+        "--input-path",
+        help="Path to the 'trajectories.json' file or folder with trajectoriy files",
+        required=True,
+    )
+    parser.add_argument(
+        "-o",
+        "--output-path",
+        help="Folder to store the graphs per domain",
+        default="output/graph",
+    )
+    parser.add_argument(
+        "-d",
+        "--target-domains",
+        nargs="*",
+        help="Target domains to use. If empty, all domains",
+    )
+    parser.add_argument(
+        "-te",
+        "--prune-threshold-edges",
+        type=float,
+        help="Threshold value for pruning the graph edges",
+        default=0.2,
+    )
+    parser.add_argument(
+        "-tn",
+        "--prune-threshold-nodes",
+        type=float,
+        help="Threshold value for pruning the graph nodes",
+        default=0.023,
+    )
+    parser.add_argument(
+        "-ew",
+        "--edges-weight",
+        choices=["max", "max-out", "prob-out"],
+        help="How to weight the edges: "
+        "'max' for frequency / max overall frequency; "
+        "'max-out' for frequency / max output sibling frequency; "
+        "'prob-out' for frequency / sum(all output siblings)",
+        default="max-out",
+    )
+    parser.add_argument(
+        "-png",
+        "--png-visualization",
+        action="store_true",
+        help="Generate PNG image files.",
+    )
+    parser.add_argument(
+        "-iv",
+        "--interactive-visualization",
+        action="store_true",
+        help="Generate interactive visualization files.",
+    )
     args = parser.parse_args()
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s.%(msecs)03d] %(message)s')
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s.%(msecs)03d] %(message)s")
+
 
 class WidestWeight:
     def __init__(self, weight, inverse=True):
         self._value = 1 / weight if inverse else weight
+
     def __add__(self, weight):
         weight = weight._value if type(weight) == WidestWeight else weight
         return WidestWeight(max(self._value, weight), inverse=False)
+
     def __radd__(self, weight):
         return self.__add__(weight)
+
     def __lt__(self, weight):
         weight = weight._value if type(weight) == WidestWeight else weight
         return self._value < weight
+
     @staticmethod
     def nx_weight(weight="weight"):
         return lambda u, v, data: WidestWeight(data[weight])
@@ -79,8 +130,11 @@ def get_utterance(node):
 def get_speaker(node):
     return "system" if node.lower().startswith("system") else "user"
 
+
 def get_node_id(node):
-    return node.split("_")[0].lower().replace("[", "").replace("]", "").replace(" ", "_")
+    return (
+        node.split("_")[0].lower().replace("[", "").replace("]", "").replace(" ", "_")
+    )
 
 
 def get_node_name(node, label=False, no_cluster_ids=False, show_id=False):
@@ -88,13 +142,26 @@ def get_node_name(node, label=False, no_cluster_ids=False, show_id=False):
         if re.search(r"\d", node):
             node = node.replace("system: ", "S").replace("user: ", "U")
             m = re.match(r"([SU].+?)_(.+)", node)
-            utterance = "<BR/>".join([m.group(2)[ix * NODE_UTTERANCE_LEN: (ix + 1) * NODE_UTTERANCE_LEN] for ix in range(len(m.group(2)) // NODE_UTTERANCE_LEN + 1)])
+            utterance = "<BR/>".join(
+                [
+                    m.group(2)[ix * NODE_UTTERANCE_LEN : (ix + 1) * NODE_UTTERANCE_LEN]
+                    for ix in range(len(m.group(2)) // NODE_UTTERANCE_LEN + 1)
+                ]
+            )
             if no_cluster_ids:
-                return f'<{utterance.capitalize()}>' if not show_id else f"<{utterance}<B>[{m.group(1)}]</B>>"
+                return (
+                    f"<{utterance.capitalize()}>"
+                    if not show_id
+                    else f"<{utterance}<B>[{m.group(1)}]</B>>"
+                )
             else:
                 return f'<<B>{m.group(1)}</B><I>("{utterance}")</I>>'
         else:
-            return "<<B>" + node.replace("system: ", "").replace("user: ", "").upper() + "</B>>"
+            return (
+                "<<B>"
+                + node.replace("system: ", "").replace("user: ", "").upper()
+                + "</B>>"
+            )
 
     return node.replace("system: ", "S").replace("user: ", "U")
 
@@ -107,16 +174,36 @@ def get_tooltip(info, node_id):
     return "\n".join(f"- {utt}" for utt in info[speaker][ix]["utterances"][:3])
 
 
-def prune_graph(G, threshold=0.023, by="node", remove_unrecheable=True):  # by= ["node", "edge", "both"]
+def prune_graph(
+    G, threshold=0.023, by="node", remove_unrecheable=True
+):  # by= ["node", "edge", "both"]
+    protected_nodes = {DEFAULT_TOKEN_START, DEFAULT_TOKEN_END}
     if by in ["node", "both"]:
-        G.remove_nodes_from([n for n, weight in G.nodes(data='weight') if weight < threshold])
+        G.remove_nodes_from(
+            [
+                n
+                for n, weight in G.nodes(data="weight")
+                if weight < threshold and n not in protected_nodes
+            ]
+        )
     if by in ["edge", "both"]:
-        G.remove_edges_from([(u, v) for u, v, weight in G.edges(data='weight') if weight < threshold])
-        G.remove_nodes_from(list(nx.isolates(G)))
+        G.remove_edges_from(
+            [(u, v) for u, v, weight in G.edges(data="weight") if weight < threshold]
+        )
+        G.remove_nodes_from([n for n in nx.isolates(G) if n not in protected_nodes])
 
     if remove_unrecheable:
-        end2start_reachables = nx.ancestors(G, DEFAULT_TOKEN_END).intersection(nx.descendants(G, DEFAULT_TOKEN_START))
-        G.remove_nodes_from([n for n in G.nodes() if n not in end2start_reachables | {DEFAULT_TOKEN_START, DEFAULT_TOKEN_END}])
+        if DEFAULT_TOKEN_START in G and DEFAULT_TOKEN_END in G:
+            end2start_reachables = nx.ancestors(G, DEFAULT_TOKEN_END).intersection(
+                nx.descendants(G, DEFAULT_TOKEN_START)
+            )
+            G.remove_nodes_from(
+                [
+                    n
+                    for n in G.nodes()
+                    if n not in end2start_reachables | protected_nodes
+                ]
+            )
 
 
 def normalize_edges(G, policy):  # policy= "max" or "max-out" or "sum-out"
@@ -129,30 +216,35 @@ def normalize_edges(G, policy):  # policy= "max" or "max-out" or "sum-out"
         for node_id in G.nodes:
             out_edges = G.out_edges(node_id, data=True)
             if out_edges:
-                total_fr = fn([d['fr'] for _, _, d in out_edges])
+                total_fr = fn([d["fr"] for _, _, d in out_edges])
                 for a, b, d in out_edges:
-                    d['weight'] = d['fr'] / total_fr
+                    d["weight"] = d["fr"] / total_fr
 
 
-def create_graph(trajectories: Dict,
-                 output_folder: str,
-                 clusters_info_folder: str = None,
-                 edges_weight: str = "max-out",
-                 prune_threshold_nodes: float = 0.023,
-                 prune_threshold_edges: float = 0.2,
-                 png_show_ids: bool = False,
-                 png_visualization: bool = True,
-                 interactive_visualization: bool = False) -> Tuple[nx.DiGraph, Dict[str, Dict]]:
-
+def create_graph(
+    trajectories: Dict,
+    output_folder: str,
+    clusters_info_folder: str = None,
+    edges_weight: str = "max-out",
+    prune_threshold_nodes: float = 0.023,
+    prune_threshold_edges: float = 0.2,
+    png_show_ids: bool = False,
+    png_visualization: bool = True,
+    interactive_visualization: bool = False,
+) -> Tuple[nx.DiGraph, Dict[str, Dict]]:
     G = nx.DiGraph()
     G.add_node(DEFAULT_TOKEN_START, color="green", fr=1)
-    G.add_node(DEFAULT_TOKEN_END, color="gray", border_color='black', border_size=2, fr=1)
+    G.add_node(
+        DEFAULT_TOKEN_END, color="gray", border_color="black", border_size=2, fr=1
+    )
 
     node_info = {}
     nodes_are_labels = False
     if clusters_info_folder and os.path.exists(clusters_info_folder):
         for speaker in [DEFAULT_SYS_NAME, DEFAULT_USER_NAME]:
-            with open(os.path.join(clusters_info_folder, f"top-utterances.{speaker}.json")) as reader:
+            with open(
+                os.path.join(clusters_info_folder, f"top-utterances.{speaker}.json")
+            ) as reader:
                 node_info[speaker] = json.load(reader)
         nodes_are_labels = node_info[speaker][0]["name"]
 
@@ -162,7 +254,9 @@ def create_graph(trajectories: Dict,
             s1, s1_speaker, s1_acts = trajectory[ix + 1]
 
             # Skipping edges to/from "noise" clusters
-            if (s0_acts and s0_acts.startswith("-1")) or (s1_acts and s1_acts.startswith("-1")):
+            if (s0_acts and s0_acts.startswith("-1")) or (
+                s1_acts and s1_acts.startswith("-1")
+            ):
                 if s1_acts and not s1_acts.startswith("-1"):
                     if s1 not in G.nodes:
                         G.add_node(s1, fr=0)
@@ -171,10 +265,13 @@ def create_graph(trajectories: Dict,
 
             edge = G.get_edge_data(s0, s1)
             if not edge:
-                G.add_edge(s0, s1,
-                           fr=1,
-                           label=s0_acts if s0_acts else "ε",
-                           color="blue" if s1_speaker == DEFAULT_USER_NAME else "red")
+                G.add_edge(
+                    s0,
+                    s1,
+                    fr=1,
+                    label=s0_acts if s0_acts else "ε",
+                    color="blue" if s1_speaker == DEFAULT_USER_NAME else "red",
+                )
             else:
                 edge["fr"] += 1
 
@@ -184,7 +281,9 @@ def create_graph(trajectories: Dict,
                 G.nodes[s1]["fr"] += 1
 
             if s0_speaker:
-                G.nodes[s0]["color"] = "blue" if s0_speaker == DEFAULT_USER_NAME else "red"
+                G.nodes[s0]["color"] = (
+                    "blue" if s0_speaker == DEFAULT_USER_NAME else "red"
+                )
                 G.nodes[s0]["speaker"] = s0_speaker
 
     # Merge nodes with the same label
@@ -192,7 +291,9 @@ def create_graph(trajectories: Dict,
         label2nodes = {}
         for n in G.nodes:
             # TODO: instead of consider nodes duplicate if have the exact same label, perhaps similarity metric can be used
-            label = f"{get_speaker(n)}-{get_node_name(n, label=True, no_cluster_ids=True)}"
+            label = (
+                f"{get_speaker(n)}-{get_node_name(n, label=True, no_cluster_ids=True)}"
+            )
             if label not in label2nodes:
                 label2nodes[label] = []
             label2nodes[label].append(n)
@@ -201,8 +302,12 @@ def create_graph(trajectories: Dict,
         repeated_nodes = [nodes for nodes in label2nodes.values() if len(nodes) > 1]
         del label2nodes
         if repeated_nodes:
-            logger.info(f"Found {len(repeated_nodes)} unique labels with repeated nodes to marge")
-            logger.info(f"    > Number of nodes before mergin duplicates: {len(G.nodes)}")
+            logger.info(
+                f"Found {len(repeated_nodes)} unique labels with repeated nodes to marge"
+            )
+            logger.info(
+                f"    > Number of nodes before mergin duplicates: {len(G.nodes)}"
+            )
             for nodes in repeated_nodes:
                 node_original, node_duplicates = nodes[0], nodes[1:]
 
@@ -245,49 +350,68 @@ def create_graph(trajectories: Dict,
     G2 = G.copy()
     edges_to_remove = []
     for s, t in G2.edges():
-        if (s.startswith("user:") and t.startswith("user:")) or (s.startswith("system:") and t.startswith("system:")):
+        if (s.startswith("user:") and t.startswith("user:")) or (
+            s.startswith("system:") and t.startswith("system:")
+        ):
             edges_to_remove.append((s, t))
     G2.remove_edges_from(edges_to_remove)
-    widest_path = nx.shortest_path(G2, DEFAULT_TOKEN_START, DEFAULT_TOKEN_END, weight=WidestWeight.nx_weight())
+    widest_path = nx.shortest_path(
+        G2, DEFAULT_TOKEN_START, DEFAULT_TOKEN_END, weight=WidestWeight.nx_weight()
+    )
     with open(os.path.join(output_folder, "widest_path.txt"), "w") as writer:
         happy_path = [node2turn(n) for n in widest_path[1:-1]]
         logger.info(f"    Widest path: {happy_path}")
         writer.write("\n".join(happy_path))
-    widest_path = [get_node_id(get_node_name(n)) for n in widest_path]  # for Javascript's `graph_happy_path`
+    widest_path = [
+        get_node_id(get_node_name(n)) for n in widest_path
+    ]  # for Javascript's `graph_happy_path`
 
     output_file = os.path.join(output_folder, "graph")
-    g = Digraph('G', filename=output_file)
+    g = Digraph("G", filename=output_file)
     g.node_attr.update(shape="underline", style="filled", fillcolor="white")
 
-    prune_graph(G, prune_threshold_edges,
-                by="edge",
-                remove_unrecheable=True)
+    prune_graph(G, prune_threshold_edges, by="edge", remove_unrecheable=True)
     logger.info(f"  #Nodes after pruning: {len(G.nodes)}")
 
-    normalize_edges(G, policy=edges_weight)  # normalizing again to recompute the weights
+    normalize_edges(
+        G, policy=edges_weight
+    )  # normalizing again to recompute the weights
 
     for s0, s1, w in G.edges(data="weight"):
         try:
             color = None
             if "speaker" in G.nodes[s1]:
-                color = "#0288d1" if G.nodes[s1]["speaker"] == DEFAULT_USER_NAME else "#9e9e9e"
+                color = (
+                    "#0288d1"
+                    if G.nodes[s1]["speaker"] == DEFAULT_USER_NAME
+                    else "#9e9e9e"
+                )
             else:
-                color = "#0288d1" if G.nodes[s0]["speaker"] == DEFAULT_USER_NAME else "#9e9e9e"
-            g.edge(get_node_name(s0), get_node_name(s1),
-                   penwidth=str(w * 5), color=color)
+                color = (
+                    "#0288d1"
+                    if G.nodes[s0]["speaker"] == DEFAULT_USER_NAME
+                    else "#9e9e9e"
+                )
+            g.edge(
+                get_node_name(s0), get_node_name(s1), penwidth=str(w * 5), color=color
+            )
         except KeyError:
             g.edge(get_node_name(s0), get_node_name(s1), penwidth=str(w * 5))
 
     for n, data in G.nodes(data=True):
         if "speaker" in data:
             weight, speaker = data["weight"], data["speaker"]
-            g.node(get_node_name(n),
-                   label=get_node_name(n, label=True, no_cluster_ids=nodes_are_labels, show_id=png_show_ids),
-                   penwidth=str(1 + weight * 5),
-                   fillcolor="#b3e5fc" if speaker == DEFAULT_USER_NAME else "white")
+            g.node(
+                get_node_name(n),
+                label=get_node_name(
+                    n, label=True, no_cluster_ids=nodes_are_labels, show_id=png_show_ids
+                ),
+                penwidth=str(1 + weight * 5),
+                fillcolor="#b3e5fc" if speaker == DEFAULT_USER_NAME else "white",
+            )
 
-    g.node(DEFAULT_TOKEN_START, "START", shape='Mdiamond', fillcolor="#e0e0e0")
-    g.node(DEFAULT_TOKEN_END, "END", shape='Mdiamond', fillcolor="#e0e0e0")
+    g.node(DEFAULT_TOKEN_START, "START", shape="Mdiamond", fillcolor="#e0e0e0")
+    g.node(DEFAULT_TOKEN_END, "END", shape="Mdiamond", fillcolor="#e0e0e0")
 
     output_path = os.path.join(output_folder, "graph.graphml")
     logger.info(f"  Saving graph as GraphML format in '{output_path}'")
@@ -301,6 +425,7 @@ def create_graph(trajectories: Dict,
         g.render(output_file, view=False, format="png")
         try:
             from PIL import Image
+
             image = Image.open(f"{output_file}.png")
             image.show()
         except:
@@ -311,7 +436,9 @@ def create_graph(trajectories: Dict,
         output_file = os.path.join(output_folder, "graph.html")
 
         logger.info(f"  Saving graph HTML interactive visualization in '{output_file}'")
-        path_visualization = os.path.join(os.path.dirname(__file__), "util/visualization/")
+        path_visualization = os.path.join(
+            os.path.dirname(__file__), "util/visualization/"
+        )
         shutil.copytree(path_visualization, output_folder, dirs_exist_ok=True)
         with open(os.path.join(path_visualization, "graph.html")) as reader:
             html = reader.read()
@@ -322,7 +449,14 @@ def create_graph(trajectories: Dict,
         tooltips = {}
         for n, data in G.nodes(data=True):
             nid = get_node_id(get_node_name(n))
-            nname = re.sub("<BR/>", "", get_node_name(n, label=True, no_cluster_ids=nodes_are_labels).replace("'", r"\'")[1:-1], flags=re.IGNORECASE)
+            nname = re.sub(
+                "<BR/>",
+                "",
+                get_node_name(n, label=True, no_cluster_ids=nodes_are_labels).replace(
+                    "'", r"\'"
+                )[1:-1],
+                flags=re.IGNORECASE,
+            )
             tooltips[nid] = get_tooltip(node_info, nid)
             if nid == "start":
                 graph_html += f"var v{nid} = graph.insertVertex(parent, '{nid}', '\t', 0, 0, 40, 10, 'fillColor=#B3B3B3;strokeColor=#03071e;"
@@ -333,9 +467,9 @@ def create_graph(trajectories: Dict,
 
             if "speaker" in data:
                 weight, speaker = data["weight"], data["speaker"]
-                graph_html += f"strokeOpacity={weight * 100};fillColor={'#DC2F02' if speaker == 'user' else '#03071E'};";
+                graph_html += f"strokeOpacity={weight * 100};fillColor={'#DC2F02' if speaker == 'user' else '#03071E'};"
             else:
-                if nid == 'start':
+                if nid == "start":
                     graph_html += "shape=ellipse;fillColor=#B3B3B3;"
                 else:
                     graph_html += "shape=ellipse;fillColor=#FFA500;"
@@ -350,9 +484,17 @@ def create_graph(trajectories: Dict,
             try:
                 color = None
                 if "speaker" in G.nodes[s1]:
-                    color = "#3333AA" if G.nodes[s1]["speaker"] == DEFAULT_USER_NAME else "#cf8602"
+                    color = (
+                        "#3333AA"
+                        if G.nodes[s1]["speaker"] == DEFAULT_USER_NAME
+                        else "#cf8602"
+                    )
                 else:
-                    color = "#3333AA" if G.nodes[s0]["speaker"] == DEFAULT_USER_NAME else "#cf8602"
+                    color = (
+                        "#3333AA"
+                        if G.nodes[s0]["speaker"] == DEFAULT_USER_NAME
+                        else "#cf8602"
+                    )
                 graph_html += f"strokeColor={color};"
             except KeyError:
                 pass
@@ -365,19 +507,26 @@ def create_graph(trajectories: Dict,
             writer.write(html_first + graph_html + html_end)
 
     # Returning the graph and nodes info
-    return G, CaselessDict({f"{speaker[0].upper()}{ix}": info for speaker in node_info for ix, info in enumerate(node_info[speaker])})
+    return G, CaselessDict(
+        {
+            f"{speaker[0].upper()}{ix}": info
+            for speaker in node_info
+            for ix, info in enumerate(node_info[speaker])
+        }
+    )
 
 
-def trajectory2graph(path_trajectories: str,
-                     output_folder: str,
-                     edges_weight: str = "prob-out",
-                     prune_threshold_nodes: float = 0.023,
-                     prune_threshold_edges: float = 0.2,
-                     png_show_ids: bool = True,
-                     png_visualization: bool = True,
-                     interactive_visualization: bool = False,
-                     target_domains: List[str] = None) -> Tuple[nx.DiGraph, Dict[str, Dict]]:
-
+def trajectory2graph(
+    path_trajectories: str,
+    output_folder: str,
+    edges_weight: str = "prob-out",
+    prune_threshold_nodes: float = 0.023,
+    prune_threshold_edges: float = 0.2,
+    png_show_ids: bool = True,
+    png_visualization: bool = True,
+    interactive_visualization: bool = False,
+    target_domains: List[str] = None,
+) -> Tuple[nx.DiGraph, Dict[str, Dict]]:
     logger.info(f"  Reading trajectories from ({path_trajectories})...")
     with open(path_trajectories) as reader:
         data = json.load(reader)
@@ -408,14 +557,22 @@ def trajectory2graph(path_trajectories: str,
             else:
                 # (id, speaker, acts)
                 spkr_end_ix = turn.index(":")
-                spkr, dial_act = turn[:spkr_end_ix], turn[spkr_end_ix + 1:].strip().replace(":", "")
+                spkr, dial_act = (
+                    turn[:spkr_end_ix],
+                    turn[spkr_end_ix + 1 :].strip().replace(":", ""),
+                )
                 if re.match(r"^[a-z]\w*-(\w)", dial_act, flags=re.IGNORECASE):
                     domain, dial_act = dial_act.split("-")
-                trajectories[dialog_id].append((f"{spkr.lower()}: {dial_act}", spkr.lower(), dial_act))
+                trajectories[dialog_id].append(
+                    (f"{spkr.lower()}: {dial_act}", spkr.lower(), dial_act)
+                )
 
     for domain in all_trajectories:
         trajectories = all_trajectories[domain]
-        logger.info(f"    {len(trajectories)} trajectories read" + (f" for domain '{domain}'." if multi_domain else "."))
+        logger.info(
+            f"    {len(trajectories)} trajectories read"
+            + (f" for domain '{domain}'." if multi_domain else ".")
+        )
 
     for domain in all_trajectories:
         if multi_domain:
@@ -423,12 +580,22 @@ def trajectory2graph(path_trajectories: str,
         logger.info(f"  About to start creating the graph...")
         m = re.match(r".+trajectories-(.*).json", path_trajectories)
         model_name = m.group(1) if m else ""
-        output_path = os.path.join(output_folder, model_name) if model_name else output_folder
+        output_path = (
+            os.path.join(output_folder, model_name) if model_name else output_folder
+        )
         output_path = os.path.join(output_path, domain) if multi_domain else output_path
         os.makedirs(output_path, exist_ok=True)
         if model_name:
-            output_path_clusters = os.path.join(os.path.join(os.path.split(path_trajectories)[0], "clusters", model_name))
-            output_path_clusters = os.path.join(output_path_clusters, domain) if multi_domain else output_path_clusters
+            output_path_clusters = os.path.join(
+                os.path.join(
+                    os.path.split(path_trajectories)[0], "clusters", model_name
+                )
+            )
+            output_path_clusters = (
+                os.path.join(output_path_clusters, domain)
+                if multi_domain
+                else output_path_clusters
+            )
         else:
             output_path_clusters = None
 
@@ -447,6 +614,7 @@ def trajectory2graph(path_trajectories: str,
         logger.info(f"  Finished creating the graph.")
 
     return graph, nodes
+
 
 if __name__ == "__main__":
     if os.path.isdir(args.input_path):
